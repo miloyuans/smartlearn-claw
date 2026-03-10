@@ -32,12 +32,10 @@ services:
       - sh
       - -ec
       - |
-        mkdir -p /root/.openclaw /root/root-data/git /root/root-data/kube /root/root-data/aws /devops
-        touch /root/root-data/git-credentials
-        ln -sfn /root/root-data/git-credentials /root/.git-credentials
-        ln -sfn /root/root-data/git /root/.git
-        ln -sfn /root/root-data/kube /root/.kube
-        ln -sfn /root/root-data/aws /root/.aws
+        mkdir -p /root/.openclaw /root/root-data /devops
+        if [ ! -f /root/root-data/git-credentials ]; then
+          touch /root/root-data/git-credentials
+        fi
         if [ -f /config/openclaw.json ] && [ ! -f /root/.openclaw/openclaw.json ]; then
           cp /config/openclaw.json /root/.openclaw/openclaw.json
         fi
