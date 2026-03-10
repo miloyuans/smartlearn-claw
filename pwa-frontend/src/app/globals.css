@@ -4,13 +4,24 @@
 
 :root {
   color-scheme: light;
+  --bg-1: #f3fbf6;
+  --bg-2: #e8f5ff;
+  --bg-3: #ffffff;
+  --ink: #102a1f;
+  --muted: #4b5f56;
+  --brand: #19924d;
+  --brand-deep: #0d6b37;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
-  background: linear-gradient(180deg, #eefbf1 0%, #f7fbf8 35%, #ffffff 100%);
-  color: #123b20;
+  color: var(--ink);
+  font-family: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, #d6f7e3 0%, transparent 65%),
+    radial-gradient(1000px 500px at 110% 0%, #d9edff 0%, transparent 60%),
+    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 45%, var(--bg-3) 100%);
 }
 
 input,
@@ -20,9 +31,42 @@ button {
   font: inherit;
 }
 
-.card {
-  border: 1px solid #d6f5dc;
-  border-radius: 0.75rem;
-  background: #ffffff;
-  box-shadow: 0 8px 24px rgba(26, 94, 41, 0.08);
+@layer components {
+  .card {
+    @apply rounded-2xl border border-white/70 bg-white/90 shadow-xl backdrop-blur;
+    box-shadow: 0 12px 40px rgba(15, 73, 38, 0.12);
+  }
+
+  .panel-title {
+    @apply text-lg font-bold tracking-tight;
+    color: #0f4b2d;
+  }
+
+  .input-base {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none transition;
+  }
+
+  .input-base:focus {
+    @apply border-emerald-500 ring-2 ring-emerald-100;
+  }
+
+  .btn-primary {
+    @apply rounded-xl bg-emerald-600 px-4 py-2 font-semibold text-white transition;
+  }
+
+  .btn-primary:hover {
+    @apply bg-emerald-700;
+  }
+
+  .btn-primary:disabled {
+    @apply cursor-not-allowed bg-slate-400;
+  }
+
+  .btn-outline {
+    @apply rounded-xl border border-emerald-700 px-4 py-2 font-semibold text-emerald-800 transition;
+  }
+
+  .btn-outline:hover {
+    @apply bg-emerald-50;
+  }
 }

@@ -8,7 +8,7 @@ import PointsDisplay from "@/components/PointsDisplay";
 import UploadForm from "@/components/UploadForm";
 import { fetchCurrentUser, uploadMaterial } from "@/lib/apiClient";
 import { clearAuthSession, getToken } from "@/lib/auth";
-import { triggerSkill } from "@/lib/openClawClient";
+import { resetTransportMode, triggerSkill } from "@/lib/openClawClient";
 
 function formatMaybeJSON(value) {
   if (typeof value === "string") {
@@ -55,7 +55,7 @@ export default function DashboardPage() {
         setUser(result.user);
         setPoints(Number(result.user?.points || 0));
         setReady(true);
-      } catch (error) {
+      } catch (_error) {
         if (!cancelled) {
           clearAuthSession();
           router.push("/login");
@@ -71,15 +71,20 @@ export default function DashboardPage() {
   }, [router]);
 
   const userId = user?.user_id || "student-001";
-  const welcomeText = useMemo(() => `Signed in as ${user?.username || userId}`, [user, userId]);
+  const welcomeText = useMemo(() => `Welcome back, ${user?.username || userId}`, [user, userId]);
 
   const callSkill = async (skillName, payload, onSuccess) => {
     setBusy(true);
-    setStatus(`Running ${skillName}...`);
+    setStatus(`Running ${skillName} ...`);
     try {
       const result = await triggerSkill(skillName, payload);
       onSuccess(result);
-      setStatus(`${skillName} completed.`);
+
+      if (result?._transport === "http") {
+        setStatus(`${skillName} done (WebSocket unavailable, HTTP fallback used).`);
+      } else {
+        setStatus(`${skillName} completed.`);
+      }
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Skill call failed");
     } finally {
@@ -97,7 +102,7 @@ export default function DashboardPage() {
     try {
       const result = await uploadMaterial(token, file, subject);
       setMaterialResult(formatMaybeJSON(result));
-      setStatus("Material uploaded and analyzed.");
+      setStatus("Material upload and analysis completed.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Upload failed");
     } finally {
@@ -176,53 +181,51 @@ export default function DashboardPage() {
   };
 
   const handleLogout = () => {
+    resetTransportMode();
     clearAuthSession();
     router.push("/login");
   };
 
   if (!ready) {
     return (
-      <main className="min-h-screen grid place-items-center">
+      <main className="grid min-h-screen place-items-center">
         <p className="text-slate-600">Loading...</p>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8">
-      <header className="mb-6 flex items-center justify-between gap-4">
+    <main className="mx-auto max-w-6xl space-y-4 px-4 py-8">
+      <header className="card flex flex-wrap items-center justify-between gap-4 p-5">
         <div>
-          <h1 className="text-3xl font-bold text-brand-900">Learning Dashboard</h1>
-          <p className="text-sm text-slate-600">{welcomeText}</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-emerald-700">SmartLearn Dashboard</p>
+          <h1 className="mt-1 text-3xl font-black tracking-tight text-emerald-950">Learning Console</h1>
+          <p className="mt-1 text-sm text-slate-600">{welcomeText}</p>
         </div>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-        >
+        <button type="button" onClick={handleLogout} className="btn-outline">
           Logout
         </button>
       </header>
 
       <section className="grid gap-4 md:grid-cols-2">
         <ChatWindow
-          title="Subject Tutor"
+          title="AI Subject Tutor"
           skillName="tutor_subject"
           payloadKey="question"
           responseKey="response"
-          placeholder="Ask your homework question"
+          placeholder="Example: Explain quadratic vertex form"
         />
 
         <UploadForm onAnalyzeFile={handleAnalyzeFile} onAnalyzeQuery={handleAnalyzeQuery} disabled={busy} />
       </section>
 
-      <section className="mt-4 card p-4">
-        <h3 className="text-lg font-semibold text-brand-900">Review Plan</h3>
-        <div className="mt-3 flex gap-2">
+      <section className="card p-5">
+        <h3 className="panel-title">Review Plan</h3>
+        <div className="mt-3 flex flex-wrap gap-2">
           <select
             value={reviewSubject}
             onChange={(event) => setReviewSubject(event.target.value)}
-            className="rounded-md border border-slate-300 px-3 py-2"
+            className="input-base max-w-xs"
             disabled={busy}
           >
             <option value="math">Math</option>
@@ -230,27 +233,22 @@ export default function DashboardPage() {
             <option value="science">Science</option>
             <option value="history">History</option>
           </select>
-          <button
-            type="button"
-            onClick={handleReviewPlan}
-            disabled={busy}
-            className="rounded-md bg-brand-700 px-4 py-2 text-white disabled:bg-slate-400"
-          >
+          <button type="button" onClick={handleReviewPlan} disabled={busy} className="btn-primary">
             Generate 7-day Plan
           </button>
         </div>
         {reviewPlanResult ? (
-          <pre className="mt-3 whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-sm">{reviewPlanResult}</pre>
+          <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-sm">{reviewPlanResult}</pre>
         ) : null}
       </section>
 
-      <section className="mt-4 card p-4">
-        <h3 className="text-lg font-semibold text-brand-900">Mock Exam</h3>
+      <section className="card p-5">
+        <h3 className="panel-title">Mock Exam</h3>
         <div className="mt-3 flex flex-wrap gap-2">
           <select
             value={examSubject}
             onChange={(event) => setExamSubject(event.target.value)}
-            className="rounded-md border border-slate-300 px-3 py-2"
+            className="input-base max-w-xs"
             disabled={busy}
           >
             <option value="math">Math</option>
@@ -262,7 +260,7 @@ export default function DashboardPage() {
           <select
             value={examDifficulty}
             onChange={(event) => setExamDifficulty(event.target.value)}
-            className="rounded-md border border-slate-300 px-3 py-2"
+            className="input-base max-w-xs"
             disabled={busy}
           >
             <option value="easy">Easy</option>
@@ -270,24 +268,19 @@ export default function DashboardPage() {
             <option value="hard">Hard</option>
           </select>
 
-          <button
-            type="button"
-            onClick={handleGenerateExam}
-            disabled={busy}
-            className="rounded-md bg-brand-700 px-4 py-2 text-white disabled:bg-slate-400"
-          >
+          <button type="button" onClick={handleGenerateExam} disabled={busy} className="btn-primary">
             Generate Exam
           </button>
         </div>
 
         {examResult ? (
-          <pre className="mt-3 max-h-60 overflow-y-auto whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-sm">
+          <pre className="mt-3 max-h-60 overflow-y-auto whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-sm">
             {examResult}
           </pre>
         ) : null}
       </section>
 
-      <section className="mt-4 grid gap-4 md:grid-cols-2">
+      <section className="grid gap-4 md:grid-cols-2">
         <PointsDisplay points={points} onAward={handleAwardPoints} onRedeem={handleRedeem} />
 
         <div className="space-y-4">
@@ -296,7 +289,7 @@ export default function DashboardPage() {
             skillName="post_wish"
             payloadKey="wish"
             responseKey="encouragement"
-            placeholder="Post a wish"
+            placeholder="Share a goal for this week"
           />
 
           <ChatWindow
@@ -304,28 +297,24 @@ export default function DashboardPage() {
             skillName="write_diary"
             payloadKey="entry"
             responseKey="suggestions"
-            placeholder="Write your daily diary"
+            placeholder="Write your reflection for today"
           />
         </div>
       </section>
 
-      <section className="mt-4 card p-4">
-        <h3 className="text-lg font-semibold text-brand-900">Latest Results</h3>
+      <section className="card p-5">
+        <h3 className="panel-title">Latest Analysis Output</h3>
         {materialResult ? (
-          <pre className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-md bg-slate-50 p-3 text-sm">
+          <pre className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-sm">
             {materialResult}
           </pre>
         ) : (
-          <p className="mt-2 text-sm text-slate-500">No material analysis yet.</p>
+          <p className="mt-2 text-sm text-slate-500">No analysis output yet.</p>
         )}
       </section>
 
-      {status ? (
-        <p className="mt-4 rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-700">{status}</p>
-      ) : null}
-
-      {busy ? <p className="mt-2 text-xs text-slate-500">A skill task is running.</p> : null}
+      {status ? <p className="card px-4 py-3 text-sm text-slate-700">{status}</p> : null}
+      {busy ? <p className="text-xs text-slate-500">Task running...</p> : null}
     </main>
   );
 }
-

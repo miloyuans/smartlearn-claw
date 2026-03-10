@@ -49,17 +49,17 @@ export default function ChatWindow({
   };
 
   return (
-    <div className="card p-4">
-      <h3 className="text-lg font-semibold text-brand-900">{title}</h3>
+    <div className="card p-5">
+      <h3 className="panel-title">{title}</h3>
 
-      <div className="mt-3 space-y-2 max-h-64 overflow-y-auto pr-2">
+      <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
         {responses.length === 0 ? (
           <p className="text-sm text-slate-500">No messages yet.</p>
         ) : (
           responses.map((item, index) => (
-            <div key={`${item.input}-${index}`} className="rounded-md border border-slate-200 p-3">
-              <p className="text-sm font-medium text-slate-800">Q: {item.input}</p>
-              <pre className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{item.answer}</pre>
+            <div key={`${item.input}-${index}`} className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3">
+              <p className="text-sm font-semibold text-emerald-900">You: {item.input}</p>
+              <pre className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{item.answer}</pre>
             </div>
           ))
         )}
@@ -69,20 +69,15 @@ export default function ChatWindow({
         <input
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2"
+          className="input-base"
           placeholder={placeholder}
         />
-        <button
-          type="button"
-          onClick={handleSend}
-          disabled={!canSend}
-          className="rounded-md bg-brand-500 px-4 py-2 text-white disabled:cursor-not-allowed disabled:bg-slate-400"
-        >
+        <button type="button" onClick={handleSend} disabled={!canSend} className="btn-primary whitespace-nowrap">
           {loading ? "Sending" : "Send"}
         </button>
       </div>
 
-      {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="mt-2 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p> : null}
     </div>
   );
 }

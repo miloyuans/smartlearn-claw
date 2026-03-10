@@ -1,4 +1,4 @@
-function resolveApiBase() {
+export function resolveApiBase() {
   const envValue = process.env.NEXT_PUBLIC_OPENCLAW_API_URL;
   if (envValue && envValue.trim()) {
     return envValue.trim();
@@ -13,18 +13,27 @@ function resolveApiBase() {
   return "http://localhost:8000";
 }
 
-const OPENCLAW_URL = resolveApiBase();
+export const OPENCLAW_URL = resolveApiBase();
 
 function parseErrorPayload(payload) {
   if (!payload) {
     return "Request failed";
   }
+
   if (typeof payload === "string") {
     return payload;
   }
+
+  if (Array.isArray(payload.detail)) {
+    return payload.detail
+      .map((item) => item?.msg || JSON.stringify(item))
+      .join("; ");
+  }
+
   if (payload.detail) {
     return String(payload.detail);
   }
+
   return JSON.stringify(payload);
 }
 
@@ -92,5 +101,16 @@ export async function uploadMaterial(token, file, subject) {
       Authorization: `Bearer ${token}`,
     },
     body: formData,
+  });
+}
+
+export async function runSkillHttp(token, skillName, payload) {
+  return request(`/api/skills/${encodeURIComponent(skillName)}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ payload: payload || {} }),
   });
 }
