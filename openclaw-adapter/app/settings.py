@@ -14,11 +14,19 @@ class Settings:
     plugin_dir: str
     upload_dir: str
     cors_origins: list[str]
+    cors_allow_all: bool
 
 
 
 def _split_csv(value: str) -> list[str]:
     return [part.strip() for part in value.split(",") if part.strip()]
+
+
+
+def _parse_bool(value: str, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 
@@ -33,4 +41,5 @@ def get_settings() -> Settings:
         plugin_dir=os.getenv("PLUGIN_DIR", "/plugins"),
         upload_dir=os.getenv("UPLOAD_DIR", "/data/uploads"),
         cors_origins=_split_csv(cors_raw),
+        cors_allow_all=_parse_bool(os.getenv("CORS_ALLOW_ALL", "true"), default=True),
     )

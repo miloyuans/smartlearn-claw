@@ -33,11 +33,18 @@ db = mongo_client[settings.db_name]
 users = db["users"]
 
 
+allow_all_origins = settings.cors_allow_all or "*" in settings.cors_origins
+cors_origins = ["*"] if allow_all_origins else settings.cors_origins
+socket_cors_origins: list[str] | str = "*" if allow_all_origins else settings.cors_origins
+
+
+
 def _safe_user_id(username: str) -> str:
     normalized = re.sub(r"[^a-zA-Z0-9]+", "-", username.strip().lower()).strip("-")
     if not normalized:
         normalized = f"student-{uuid4().hex[:8]}"
     return normalized
+
 
 
 def _public_user(doc: Dict[str, Any]) -> Dict[str, Any]:
@@ -47,6 +54,7 @@ def _public_user(doc: Dict[str, Any]) -> Dict[str, Any]:
         "points": int(doc.get("points", 0)),
         "created_at": doc.get("created_at"),
     }
+
 
 
 def _decode_token_user(token: str) -> Dict[str, Any]:
@@ -64,6 +72,7 @@ def _decode_token_user(token: str) -> Dict[str, Any]:
         raise HTTPException(status_code=401, detail="User not found")
 
     return user
+
 
 
 def _wait_for_mongo(max_attempts: int = 30, delay_seconds: float = 2.0) -> None:
@@ -104,13 +113,14 @@ class SkillRequest(BaseModel):
 http_app = FastAPI(title="SmartLearn OpenClaw Adapter", version="0.2.0")
 http_app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
+    allow_origins=cors_origins,
+    allow_origin_regex=".*" if allow_all_origins else None,
+    allow_credentials=False if allow_all_origins else True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=settings.cors_origins)
+sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins=socket_cors_origins)
 app = socketio.ASGIApp(sio, other_asgi_app=http_app)
 
 plugin_manager = PluginManager(settings.plugin_dir, db)
@@ -130,6 +140,10 @@ def health() -> Dict[str, Any]:
         "status": "ok",
         "time": dt.datetime.now(dt.timezone.utc).isoformat(),
         "skills": plugin_manager.list_skills(),
+        "cors": {
+            "allow_all": allow_all_origins,
+            "origins": cors_origins,
+        },
     }
 
 
