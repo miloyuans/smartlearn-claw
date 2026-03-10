@@ -1,1 +1,1 @@
-﻿"""Service package for SmartLearn adapter."""
+"""Service package for SmartLearn adapter."""

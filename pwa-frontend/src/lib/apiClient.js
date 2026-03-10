@@ -1,4 +1,4 @@
-﻿const OPENCLAW_URL = process.env.NEXT_PUBLIC_OPENCLAW_API_URL || "http://localhost:8000";
+const OPENCLAW_URL = process.env.NEXT_PUBLIC_OPENCLAW_API_URL || "http://localhost:8000";
 
 function parseErrorPayload(payload) {
   if (!payload) {

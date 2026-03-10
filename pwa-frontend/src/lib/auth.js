@@ -1,4 +1,4 @@
-﻿const TOKEN_KEY = "smartlearn_token";
+const TOKEN_KEY = "smartlearn_token";
 const USER_KEY = "smartlearn_user_id";
 const TOKEN_COOKIE = "smartlearn_token";
 

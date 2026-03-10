@@ -1,4 +1,4 @@
-﻿const CACHE_NAME = "smartlearn-cache-v1";
+const CACHE_NAME = "smartlearn-cache-v1";
 const APP_SHELL = ["/", "/login", "/dashboard", "/manifest.json"];
 
 self.addEventListener("install", (event) => {

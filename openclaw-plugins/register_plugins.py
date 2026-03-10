@@ -1,4 +1,4 @@
-﻿"""Explicit plugin imports for runtimes that require pre-registration."""
+"""Explicit plugin imports for runtimes that require pre-registration."""
 
 from importlib import import_module
 from typing import List

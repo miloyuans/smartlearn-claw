@@ -1,4 +1,4 @@
-﻿# SmartLearn Claw
+# SmartLearn Claw
 
 SmartLearn Claw is a private-deployable K-12 learning hub with AI-first business logic.
 

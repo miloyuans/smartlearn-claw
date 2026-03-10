@@ -1,1 +1,1 @@
-﻿"""SmartLearn OpenClaw adapter package."""
+"""SmartLearn OpenClaw adapter package."""

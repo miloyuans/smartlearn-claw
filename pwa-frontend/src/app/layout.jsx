@@ -1,4 +1,4 @@
-﻿import "./globals.css";
+import "./globals.css";
 import PwaRegister from "@/components/PwaRegister";
 
 export const metadata = {

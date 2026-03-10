@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { io } from "socket.io-client";
 
