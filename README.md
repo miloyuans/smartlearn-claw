@@ -1,103 +1,97 @@
-# SmartLearn Claw
+# SmartLearn Claw (Native OpenClaw + Custom Tools)
 
-SmartLearn Claw is a private-deployable K-12 learning hub with AI-first business logic.
+This project runs in two layers:
 
-- AI orchestration: OpenClaw adapter + plugin skills
-- Frontend entry: Next.js PWA
-- Data: MongoDB
-- Deployment: Docker Compose
+1. Native OpenClaw (`openclaw-native`): original OpenClaw engine for skill orchestration.
+2. SmartLearn Gateway (`openclaw`): custom program layer for auth, user/admin APIs, upload pipeline, and web bridge.
 
-## Architecture
+The PWA talks only to the gateway. The gateway forwards skill execution to native OpenClaw.
+Gateway transport strategy: WebSocket first, then HTTP endpoint fallback when socket events are unavailable.
+
+## Service Topology
 
 ```mermaid
 graph TD
-    A[User Browser or PWA] -->|HTTP or WebSocket| B[Next.js PWA]
-    B -->|JWT + skill trigger| C[OpenClaw Adapter]
-    C -->|run plugin| D[Skill Plugins]
-    C -->|store and query| E[MongoDB]
-
-    subgraph Core Skills
-      D --> F[analyze_material]
-      D --> G[tutor_subject and review_plan]
-      D --> H[generate_exam and award_points]
-      D --> I[post_wish and write_diary]
-    end
+    U[Web/PWA User] --> G[SmartLearn Gateway :8000]
+    U --> W[Independent Pages /chat /admin]
+    G --> O[Native OpenClaw :18789 host and internal]
+    G --> M[MongoDB]
+    O --> T[Custom Tool Plugins (openclaw-plugins)]
+    O --> M
 ```
 
-## Monorepo Layout
+## What You Get
 
-```text
-smartlearn-claw/
-├── docker-compose.yml
-├── openclaw-adapter/
-│   ├── app/main.py
-│   └── requirements.txt
-├── openclaw-plugins/
-│   ├── analyze_material.py
-│   ├── tutor_subject.py
-│   ├── review_plan.py
-│   ├── generate_exam.py
-│   ├── award_points.py
-│   ├── post_wish.py
-│   └── write_diary.py
-└── pwa-frontend/
-    ├── public/manifest.json
-    └── src/app/
-```
+- Native OpenClaw execution path.
+- Independent chat page: `/chat`
+- Independent admin page: `/admin`
+- Main student console: `/dashboard`
 
-## One-Command Start
+## Quick Start
 
-1. Copy env config:
+1. Copy env:
 
 ```bash
 cp .env.example .env
 ```
 
-2. Run:
+2. Adjust `.env` values if needed (especially `QWEN_API_KEY` and auth secrets).
+
+3. Build and run:
 
 ```bash
 docker compose up -d --build
 ```
 
-3. Open:
-- PWA: http://localhost:3000
-- Adapter health: http://localhost:8000/health
+4. Open pages:
+- PWA login: http://localhost:3000/login
+- Chat page: http://localhost:3000/chat
+- Admin page: http://localhost:3000/admin
+- Gateway health: http://localhost:8000/health
+- Native OpenClaw (host mapped): http://localhost:18789
 
-4. Register a student account in the login page, then run full end-to-end checks (upload, tutor, review, exam, points, wish, diary).
+5. Manual native OpenClaw setup (inside container):
 
-## Adapter Endpoints
+```bash
+docker exec -it smartlearn-openclaw-native bash
+```
+
+Then follow your own process to configure DingTalk and model provider inside `/root/.openclaw`.
+This directory is persisted by Docker volume `openclaw-home`, so settings survive container restarts.
+
+## Native OpenClaw Mode
+
+Use these envs:
+- `OPENCLAW_NATIVE_IMAGE=harbor.dockerin.com/library/openclaw-ubuntu2404:v1.0.1`
+- `OPENCLAW_NATIVE_PORT=18789`
+- `SKILL_BACKEND=openclaw`
+- `OPENCLAW_NATIVE_URL=http://openclaw-native:18789`
+
+If native OpenClaw is temporarily unavailable, you can switch to local plugin execution:
+- `SKILL_BACKEND=local`
+
+## Admin Access
+
+By default, usernames in `ADMIN_USERNAMES` are assigned admin role at registration.
+On startup, legacy users that match `ADMIN_USERNAMES` and have no role are auto-migrated to `admin`.
+
+Example:
+- `ADMIN_USERNAMES=admin,ops,teacher01`
+
+## Qwen Model Config
+
+- `LLM_PROVIDER=qwen`
+- `QWEN_MODEL=qwen-plus`
+- `QWEN_API_KEY=...`
+- `QWEN_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1`
+
+## Core Endpoints (Gateway)
 
 - `POST /auth/register`
 - `POST /auth/login`
 - `GET /auth/me`
-- `POST /api/upload` (multipart file upload, auth required)
-- `POST /api/skills/{skill_name}` (auth required)
-- `WS /socket.io` event `trigger_skill` (auth required)
-
-### Example Login Response
-
-```json
-{
-  "access_token": "<jwt>",
-  "token_type": "Bearer",
-  "expires_minutes": 10080,
-  "user": {
-    "user_id": "student-a1b2c3",
-    "username": "demo",
-    "points": 0,
-    "created_at": "2026-03-10T12:00:00+00:00"
-  }
-}
-```
-
-## Security Notes
-
-- JWT is required for HTTP and Socket calls.
-- `user_id` is injected server-side from JWT, not trusted from frontend payload.
-- Replace `JWT_SECRET` before production deployment.
-
-## Production Suggestions
-
-- Add HTTPS reverse proxy (Nginx/Caddy).
-- Move upload storage to object storage.
-- Add refresh token and password reset flows.
+- `GET /admin/overview` (admin only)
+- `GET /admin/users` (admin only)
+- `POST /api/upload`
+- `POST /api/skills/{skill_name}`
+- `WS /socket.io` `trigger_skill`

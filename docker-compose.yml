@@ -1,11 +1,33 @@
 version: "3.8"
 
 services:
+  openclaw-native:
+    image: ${OPENCLAW_NATIVE_IMAGE:-harbor.dockerin.com/library/openclaw-ubuntu2404:v1.0.1}
+    container_name: smartlearn-openclaw-native
+    ports:
+      - "${OPENCLAW_NATIVE_PORT:-18789}:18789"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      OPENCLAW_HOME: /root/.openclaw
+      NODE_ENV: production
+      MODEL: ${MODEL:-qwen-plus}
+      DB_URL: ${DB_URL:-mongodb://db:27017/smartlearn}
+      QWEN_API_KEY: ${QWEN_API_KEY:-}
+      QWEN_MODEL: ${QWEN_MODEL:-qwen-plus}
+      QWEN_BASE_URL: ${QWEN_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+    volumes:
+      - openclaw-home:/root/.openclaw
+      - ./openclaw-plugins:/plugins
+      - ./openclaw-plugins:/openclaw/plugins
+    depends_on:
+      - db
+    restart: unless-stopped
+
   openclaw:
     build:
       context: ./openclaw-adapter
       dockerfile: Dockerfile
-    container_name: smartlearn-openclaw
+    container_name: smartlearn-gateway
     ports:
       - "8000:8000"
     environment:
@@ -18,11 +40,25 @@ services:
       UPLOAD_DIR: /data/uploads
       CORS_ALLOW_ALL: ${CORS_ALLOW_ALL:-true}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      SKILL_BACKEND: ${SKILL_BACKEND:-openclaw}
+      OPENCLAW_NATIVE_URL: ${OPENCLAW_NATIVE_URL:-http://openclaw-native:18789}
+      OPENCLAW_NATIVE_TOKEN: ${OPENCLAW_NATIVE_TOKEN:-}
+      REMOTE_TIMEOUT_SECONDS: ${REMOTE_TIMEOUT_SECONDS:-25}
+      ADMIN_USERNAMES: ${ADMIN_USERNAMES:-admin}
+      LLM_PROVIDER: ${LLM_PROVIDER:-qwen}
+      MODEL: ${MODEL:-qwen-plus}
+      QWEN_MODEL: ${QWEN_MODEL:-qwen-plus}
+      QWEN_API_KEY: ${QWEN_API_KEY:-}
+      QWEN_BASE_URL: ${QWEN_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-60}
     volumes:
       - ./openclaw-plugins:/plugins
+      - ./openclaw-plugins:/openclaw/plugins
       - ./openclaw-adapter/data:/data
     depends_on:
       - db
+      - openclaw-native
+    restart: unless-stopped
 
   db:
     image: mongo:7
@@ -31,6 +67,7 @@ services:
       - "27017:27017"
     volumes:
       - db-data:/data/db
+    restart: unless-stopped
 
   pwa:
     build:
@@ -43,6 +80,8 @@ services:
       NEXT_PUBLIC_OPENCLAW_API_URL: ${NEXT_PUBLIC_OPENCLAW_API_URL:-http://localhost:8000}
     depends_on:
       - openclaw
+    restart: unless-stopped
 
 volumes:
   db-data:
+  openclaw-home:

@@ -202,9 +202,19 @@ export default function DashboardPage() {
           <h1 className="mt-1 text-3xl font-black tracking-tight text-emerald-950">Learning Console</h1>
           <p className="mt-1 text-sm text-slate-600">{welcomeText}</p>
         </div>
-        <button type="button" onClick={handleLogout} className="btn-outline">
-          Logout
-        </button>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => router.push("/chat")} className="btn-outline">
+            Chat
+          </button>
+          {user?.role === "admin" ? (
+            <button type="button" onClick={() => router.push("/admin")} className="btn-outline">
+              Admin
+            </button>
+          ) : null}
+          <button type="button" onClick={handleLogout} className="btn-outline">
+            Logout
+          </button>
+        </div>
       </header>
 
       <section className="grid gap-4 md:grid-cols-2">

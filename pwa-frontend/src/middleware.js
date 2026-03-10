@@ -4,7 +4,7 @@ export function middleware(request) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get("smartlearn_token")?.value;
 
-  if (pathname.startsWith("/dashboard") && !token) {
+  if ((pathname.startsWith("/dashboard") || pathname.startsWith("/chat") || pathname.startsWith("/admin")) && !token) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }
@@ -18,5 +18,5 @@ export function middleware(request) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login"],
+  matcher: ["/dashboard/:path*", "/chat/:path*", "/admin/:path*", "/login"],
 };

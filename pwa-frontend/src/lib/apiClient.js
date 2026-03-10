@@ -90,6 +90,24 @@ export async function fetchCurrentUser(token) {
   });
 }
 
+export async function fetchAdminOverview(token) {
+  return request("/admin/overview", {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
+export async function fetchAdminUsers(token, limit = 50) {
+  return request(`/admin/users?limit=${encodeURIComponent(String(limit))}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+
 export async function uploadMaterial(token, file, subject) {
   const formData = new FormData();
   formData.append("file", file);

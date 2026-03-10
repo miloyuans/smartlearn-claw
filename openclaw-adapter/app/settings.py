@@ -15,6 +15,11 @@ class Settings:
     upload_dir: str
     cors_origins: list[str]
     cors_allow_all: bool
+    skill_backend: str
+    openclaw_native_url: str
+    openclaw_native_token: str
+    remote_timeout_seconds: int
+    admin_usernames: list[str]
 
 
 
@@ -32,6 +37,8 @@ def _parse_bool(value: str, default: bool = False) -> bool:
 
 def get_settings() -> Settings:
     cors_raw = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+    admin_usernames = [name.lower() for name in _split_csv(os.getenv("ADMIN_USERNAMES", "admin"))]
+
     return Settings(
         db_url=os.getenv("DB_URL", "mongodb://db:27017/smartlearn"),
         db_name=os.getenv("DB_NAME", "smartlearn"),
@@ -42,4 +49,9 @@ def get_settings() -> Settings:
         upload_dir=os.getenv("UPLOAD_DIR", "/data/uploads"),
         cors_origins=_split_csv(cors_raw),
         cors_allow_all=_parse_bool(os.getenv("CORS_ALLOW_ALL", "true"), default=True),
+        skill_backend=os.getenv("SKILL_BACKEND", "openclaw").strip().lower(),
+        openclaw_native_url=os.getenv("OPENCLAW_NATIVE_URL", "http://openclaw-native:18789").strip(),
+        openclaw_native_token=os.getenv("OPENCLAW_NATIVE_TOKEN", "").strip(),
+        remote_timeout_seconds=int(os.getenv("REMOTE_TIMEOUT_SECONDS", "25")),
+        admin_usernames=admin_usernames,
     )
