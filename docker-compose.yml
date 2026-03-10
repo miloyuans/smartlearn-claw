@@ -6,6 +6,7 @@ services:
     container_name: smartlearn-openclaw-native
     ports:
       - "${OPENCLAW_NATIVE_PORT:-18789}:18789"
+      - "${OPENCLAW_NATIVE_ALT_PORT:-1455}:1455"
     environment:
       TZ: ${TZ:-Asia/Shanghai}
       OPENCLAW_HOME: /root/.openclaw
@@ -15,13 +16,42 @@ services:
       QWEN_API_KEY: ${QWEN_API_KEY:-}
       QWEN_MODEL: ${QWEN_MODEL:-qwen-plus}
       QWEN_BASE_URL: ${QWEN_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      OPENCLAW_ALLOW_UNCONFIGURED: ${OPENCLAW_ALLOW_UNCONFIGURED:-true}
     volumes:
       - openclaw-home:/root/.openclaw
+      - ${OPENCLAW_CONFIG_DIR:-./deploy/openclaw/config}:/config:ro
+      - ${OPENCLAW_ROOT_DATA_DIR:-./deploy/openclaw/root}:/root/root-data
+      - devops-shared:/opt
+      - devops-shared:/devops
       - ./openclaw-plugins:/plugins
       - ./openclaw-plugins:/openclaw/plugins
     depends_on:
-      - db
-    command: ["openclaw", "gateway", "--allow-unconfigured"]
+      db:
+        condition: service_healthy
+    command:
+      - sh
+      - -ec
+      - |
+        mkdir -p /root/.openclaw /root/root-data/git /root/root-data/kube /root/root-data/aws /devops
+        touch /root/root-data/git-credentials
+        ln -sfn /root/root-data/git-credentials /root/.git-credentials
+        ln -sfn /root/root-data/git /root/.git
+        ln -sfn /root/root-data/kube /root/.kube
+        ln -sfn /root/root-data/aws /root/.aws
+        if [ -f /config/openclaw.json ] && [ ! -f /root/.openclaw/openclaw.json ]; then
+          cp /config/openclaw.json /root/.openclaw/openclaw.json
+        fi
+        if [ "$${OPENCLAW_ALLOW_UNCONFIGURED}" = "true" ]; then
+          exec openclaw gateway --allow-unconfigured
+        else
+          exec openclaw gateway
+        fi
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sS http://127.0.0.1:18789 >/dev/null || curl -sS http://127.0.0.1:1455 >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
     restart: unless-stopped
 
   openclaw:
@@ -57,8 +87,18 @@ services:
       - ./openclaw-plugins:/openclaw/plugins
       - ./openclaw-adapter/data:/data
     depends_on:
-      - db
-      - openclaw-native
+      db:
+        condition: service_healthy
+      openclaw-native:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
     restart: unless-stopped
 
   db:
@@ -68,6 +108,14 @@ services:
       - "27017:27017"
     volumes:
       - db-data:/data/db
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mongosh --quiet --eval "quit(db.adminCommand({ ping: 1 }).ok ? 0 : 1)" mongodb://127.0.0.1:27017/admin
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
     restart: unless-stopped
 
   pwa:
@@ -80,9 +128,19 @@ services:
     environment:
       NEXT_PUBLIC_OPENCLAW_API_URL: ${NEXT_PUBLIC_OPENCLAW_API_URL:-http://localhost:8000}
     depends_on:
-      - openclaw
+      openclaw:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "fetch('http://127.0.0.1:3000').then(() => process.exit(0)).catch(() => process.exit(1))"
+      interval: 20s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
     restart: unless-stopped
 
 volumes:
   db-data:
   openclaw-home:
+  devops-shared:

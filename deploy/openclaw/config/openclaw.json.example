@@ -1,0 +1,9 @@
+{
+  "gateway": {
+    "mode": "local"
+  },
+  "model": {
+    "provider": "dashscope",
+    "name": "qwen-plus"
+  }
+}

@@ -14,18 +14,25 @@ Gateway transport strategy: WebSocket first, then HTTP endpoint fallback when so
 graph TD
     U[Web/PWA User] --> G[SmartLearn Gateway :8000]
     U --> W[Independent Pages /chat /admin]
-    G --> O[Native OpenClaw :18789 host and internal]
+    G --> O[Native OpenClaw :18789 and :1455]
     G --> M[MongoDB]
     O --> T[Custom Tool Plugins (openclaw-plugins)]
     O --> M
 ```
 
-## What You Get
+## Optimized Deployment (Compose)
 
-- Native OpenClaw execution path.
-- Independent chat page: `/chat`
-- Independent admin page: `/admin`
-- Main student console: `/dashboard`
+The Compose deployment is optimized to mirror your Kubernetes spec style:
+
+- Native OpenClaw image: `harbor.dockerin.com/library/openclaw-ubuntu2404:v1.0.1`
+- Exposes ports: `18789` and `1455`
+- Persistent paths:
+  - `/root/.openclaw` (named volume)
+  - `/root/root-data` (bind-mounted root data dir)
+  - `/opt` and `/devops` (shared named volume)
+- Startup init logic:
+  - If `/config/openclaw.json` exists and `/root/.openclaw/openclaw.json` is missing, copy once.
+- Health checks and startup ordering for `db -> openclaw-native -> gateway -> pwa`.
 
 ## Quick Start
 
@@ -35,7 +42,11 @@ graph TD
 cp .env.example .env
 ```
 
-2. Adjust `.env` values if needed (especially `QWEN_API_KEY` and auth secrets).
+2. (Optional but recommended) provide bootstrap config:
+
+```bash
+cp deploy/openclaw/config/openclaw.json.example deploy/openclaw/config/openclaw.json
+```
 
 3. Build and run:
 
@@ -48,28 +59,40 @@ docker compose up -d --build
 - Chat page: http://localhost:3000/chat
 - Admin page: http://localhost:3000/admin
 - Gateway health: http://localhost:8000/health
-- Native OpenClaw (host mapped): http://localhost:18789
+- Native OpenClaw ports: http://localhost:18789 and http://localhost:1455
 
 5. Manual native OpenClaw setup (inside container):
 
 ```bash
 docker exec -it smartlearn-openclaw-native bash
+openclaw setup
 ```
 
-The compose file starts native gateway with `openclaw gateway --allow-unconfigured` for first boot.
-Then follow your own process to configure DingTalk and model provider inside `/root/.openclaw`.
-This directory is persisted by Docker volume `openclaw-home`, so settings survive container restarts.
+The native container starts with `openclaw gateway --allow-unconfigured` by default for first boot.
+After setup is complete, you can set `OPENCLAW_ALLOW_UNCONFIGURED=false` in `.env`.
 
 ## Native OpenClaw Mode
 
 Use these envs:
 - `OPENCLAW_NATIVE_IMAGE=harbor.dockerin.com/library/openclaw-ubuntu2404:v1.0.1`
 - `OPENCLAW_NATIVE_PORT=18789`
+- `OPENCLAW_NATIVE_ALT_PORT=1455`
+- `OPENCLAW_ALLOW_UNCONFIGURED=true`
+- `OPENCLAW_CONFIG_DIR=./deploy/openclaw/config`
+- `OPENCLAW_ROOT_DATA_DIR=./deploy/openclaw/root`
 - `SKILL_BACKEND=openclaw`
 - `OPENCLAW_NATIVE_URL=http://openclaw-native:18789`
 
 If native OpenClaw is temporarily unavailable, you can switch to local plugin execution:
 - `SKILL_BACKEND=local`
+
+## Kubernetes Manifests
+
+A Kubernetes deployment aligned with your provided pattern is included at:
+
+- `deploy/k8s/openclaw.yaml`
+
+It includes Secret, PVCs, Deployment (`init-config` initContainer), and Service.
 
 ## Admin Access
 

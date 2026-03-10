@@ -1,0 +1,175 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openclaw-config
+type: Opaque
+stringData:
+  openclaw.json: |
+    {
+      "gateway": {
+        "mode": "local"
+      },
+      "model": {
+        "provider": "dashscope",
+        "name": "qwen-plus"
+      }
+    }
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openclaw-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openclaw-root-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: devops-shared-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openclaw-native
+  labels:
+    app: openclaw-native
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openclaw-native
+  template:
+    metadata:
+      labels:
+        app: openclaw-native
+    spec:
+      initContainers:
+        - name: init-config
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              if [ -f /config/openclaw.json ] && [ ! -f /data/openclaw.json ]; then
+                cp /config/openclaw.json /data/openclaw.json;
+              fi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: openclaw-data
+              mountPath: /data
+      containers:
+        - name: openclaw
+          image: harbor.dockerin.com/library/openclaw-ubuntu2404:v1.0.1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+            - name: OPENCLAW_HOME
+              value: /root/.openclaw
+            - name: OPENCLAW_ALLOW_UNCONFIGURED
+              value: "true"
+          command:
+            - sh
+            - -ec
+            - |
+              mkdir -p /root/root-data/git /root/root-data/kube /root/root-data/aws /devops
+              touch /root/root-data/git-credentials
+              ln -sfn /root/root-data/git-credentials /root/.git-credentials
+              ln -sfn /root/root-data/git /root/.git
+              ln -sfn /root/root-data/kube /root/.kube
+              ln -sfn /root/root-data/aws /root/.aws
+              if [ "${OPENCLAW_ALLOW_UNCONFIGURED}" = "true" ]; then
+                exec openclaw gateway --allow-unconfigured
+              else
+                exec openclaw gateway
+              fi
+          ports:
+            - containerPort: 18789
+              name: openclaw
+              protocol: TCP
+            - containerPort: 1455
+              name: openclaw-alt
+              protocol: TCP
+          readinessProbe:
+            tcpSocket:
+              port: 18789
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: 18789
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 6
+          volumeMounts:
+            - name: openclaw-root-data
+              mountPath: /root/root-data
+            - name: openclaw-data
+              mountPath: /root/.openclaw
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: devops-volume
+              mountPath: /opt
+            - name: devops-volume
+              mountPath: /devops
+      volumes:
+        - name: config
+          secret:
+            secretName: openclaw-config
+            defaultMode: 420
+        - name: openclaw-data
+          persistentVolumeClaim:
+            claimName: openclaw-pvc
+        - name: openclaw-root-data
+          persistentVolumeClaim:
+            claimName: openclaw-root-pvc
+        - name: devops-volume
+          persistentVolumeClaim:
+            claimName: devops-shared-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openclaw-native
+  labels:
+    app: openclaw-native
+spec:
+  selector:
+    app: openclaw-native
+  type: ClusterIP
+  ports:
+    - name: openclaw
+      port: 18789
+      protocol: TCP
+      targetPort: 18789
+    - name: openclaw-alt
+      port: 1455
+      protocol: TCP
+      targetPort: 1455

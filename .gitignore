@@ -19,3 +19,13 @@ db-data/
 
 # Adapter uploads
 openclaw-adapter/data/uploads/
+
+# OpenClaw local runtime secrets/data
+/deploy/openclaw/config/openclaw.json
+/deploy/openclaw/root/git-credentials
+/deploy/openclaw/root/git/*
+!/deploy/openclaw/root/git/.gitkeep
+/deploy/openclaw/root/kube/*
+!/deploy/openclaw/root/kube/.gitkeep
+/deploy/openclaw/root/aws/*
+!/deploy/openclaw/root/aws/.gitkeep
