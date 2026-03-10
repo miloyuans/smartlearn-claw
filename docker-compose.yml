@@ -16,7 +16,7 @@ services:
       JWT_EXP_MINUTES: ${JWT_EXP_MINUTES:-10080}
       PLUGIN_DIR: /plugins
       UPLOAD_DIR: /data/uploads
-      CORS_ORIGINS: http://localhost:3000
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     volumes:
       - ./openclaw-plugins:/plugins
       - ./openclaw-adapter/data:/data
@@ -45,5 +45,6 @@ services:
 
 volumes:
   db-data:
+
 
 

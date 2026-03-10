@@ -23,7 +23,7 @@ def _split_csv(value: str) -> list[str]:
 
 
 def get_settings() -> Settings:
-    cors_raw = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+    cors_raw = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
     return Settings(
         db_url=os.getenv("DB_URL", "mongodb://db:27017/smartlearn"),
         db_name=os.getenv("DB_NAME", "smartlearn"),

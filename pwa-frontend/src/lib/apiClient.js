@@ -1,4 +1,19 @@
-const OPENCLAW_URL = process.env.NEXT_PUBLIC_OPENCLAW_API_URL || "http://localhost:8000";
+function resolveApiBase() {
+  const envValue = process.env.NEXT_PUBLIC_OPENCLAW_API_URL;
+  if (envValue && envValue.trim()) {
+    return envValue.trim();
+  }
+
+  if (typeof window !== "undefined") {
+    const url = new URL(window.location.origin);
+    url.port = "8000";
+    return url.origin;
+  }
+
+  return "http://localhost:8000";
+}
+
+const OPENCLAW_URL = resolveApiBase();
 
 function parseErrorPayload(payload) {
   if (!payload) {
@@ -14,12 +29,18 @@ function parseErrorPayload(payload) {
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`${OPENCLAW_URL}${path}`, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-    },
-  });
+  let response;
+  try {
+    response = await fetch(`${OPENCLAW_URL}${path}`, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+      },
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "network error";
+    throw new Error(`Cannot reach OpenClaw API at ${OPENCLAW_URL}: ${reason}`);
+  }
 
   const isJson = response.headers.get("content-type")?.includes("application/json");
   const payload = isJson ? await response.json() : await response.text();
