@@ -65,7 +65,20 @@ class _OpenClawMock:
 
     @staticmethod
     def ocr_extract(file_path: str) -> str:
-        return f"Mock OCR text from {file_path}"
+        try:
+            raw = open(file_path, "rb").read()
+        except OSError:
+            return f"Mock OCR text from {file_path}"
+
+        # Basic fallback extractor for txt/md/json uploads.
+        for encoding in ("utf-8", "gbk", "latin-1"):
+            try:
+                text = raw.decode(encoding)
+                return text[:20000]
+            except UnicodeDecodeError:
+                continue
+
+        return f"Binary material uploaded: {file_path} ({len(raw)} bytes)"
 
     @staticmethod
     def llm_summarize(text: str, prompt: str) -> Dict[str, Any]:
@@ -171,3 +184,4 @@ def db_get(collection: str, query: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if rows:
         return rows[0]
     return None
+

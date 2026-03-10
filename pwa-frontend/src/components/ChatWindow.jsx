@@ -16,7 +16,6 @@ export default function ChatWindow({
   skillName,
   payloadKey = "question",
   responseKey = "response",
-  userId,
   placeholder = "Type your message...",
 }) {
   const [input, setInput] = useState("");
@@ -36,7 +35,6 @@ export default function ChatWindow({
 
     try {
       const payload = {
-        user_id: userId,
         [payloadKey]: input.trim(),
       };
       const result = await triggerSkill(skillName, payload);

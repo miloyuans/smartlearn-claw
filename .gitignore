@@ -16,3 +16,6 @@ __pycache__/
 
 # Mongo volume (if mounted locally)
 db-data/
+
+# Adapter uploads
+openclaw-adapter/data/uploads/

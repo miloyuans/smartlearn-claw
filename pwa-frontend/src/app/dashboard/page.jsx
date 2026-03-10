@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import ChatWindow from "@/components/ChatWindow";
 import PointsDisplay from "@/components/PointsDisplay";
 import UploadForm from "@/components/UploadForm";
-import { clearAuthSession, getToken, getUserId } from "@/lib/auth";
+import { fetchCurrentUser, uploadMaterial } from "@/lib/apiClient";
+import { clearAuthSession, getToken } from "@/lib/auth";
 import { triggerSkill } from "@/lib/openClawClient";
 
 function formatMaybeJSON(value) {
@@ -20,7 +21,8 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [ready, setReady] = useState(false);
-  const [userId, setUserId] = useState("student-001");
+  const [token, setToken] = useState(null);
+  const [user, setUser] = useState(null);
   const [points, setPoints] = useState(0);
 
   const [reviewSubject, setReviewSubject] = useState("math");
@@ -35,17 +37,41 @@ export default function DashboardPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    const token = getToken();
-    if (!token) {
+    const nextToken = getToken();
+    if (!nextToken) {
       router.push("/login");
       return;
     }
 
-    setUserId(getUserId());
-    setReady(true);
+    let cancelled = false;
+
+    const bootstrap = async () => {
+      try {
+        const result = await fetchCurrentUser(nextToken);
+        if (cancelled) {
+          return;
+        }
+        setToken(nextToken);
+        setUser(result.user);
+        setPoints(Number(result.user?.points || 0));
+        setReady(true);
+      } catch (error) {
+        if (!cancelled) {
+          clearAuthSession();
+          router.push("/login");
+        }
+      }
+    };
+
+    bootstrap();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
-  const welcomeText = useMemo(() => `Signed in as ${userId}`, [userId]);
+  const userId = user?.user_id || "student-001";
+  const welcomeText = useMemo(() => `Signed in as ${user?.username || userId}`, [user, userId]);
 
   const callSkill = async (skillName, payload, onSuccess) => {
     setBusy(true);
@@ -61,8 +87,26 @@ export default function DashboardPage() {
     }
   };
 
-  const handleAnalyze = async (payload) => {
-    await callSkill("analyze_material", payload, (result) => {
+  const handleAnalyzeFile = async (file, subject) => {
+    if (!token) {
+      return;
+    }
+
+    setBusy(true);
+    setStatus("Uploading and analyzing material...");
+    try {
+      const result = await uploadMaterial(token, file, subject);
+      setMaterialResult(formatMaybeJSON(result));
+      setStatus("Material uploaded and analyzed.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleAnalyzeQuery = async (query, subject) => {
+    await callSkill("analyze_material", { query, subject }, (result) => {
       setMaterialResult(formatMaybeJSON(result));
     });
   };
@@ -71,7 +115,6 @@ export default function DashboardPage() {
     await callSkill(
       "review_plan",
       {
-        user_id: userId,
         subject: reviewSubject,
       },
       (result) => {
@@ -84,7 +127,6 @@ export default function DashboardPage() {
     await callSkill(
       "generate_exam",
       {
-        user_id: userId,
         subject: examSubject,
         difficulty: examDifficulty,
       },
@@ -98,10 +140,13 @@ export default function DashboardPage() {
     await callSkill(
       "award_points",
       {
-        user_id: userId,
         action,
       },
       (result) => {
+        if (typeof result?.current_points === "number") {
+          setPoints(result.current_points);
+          return;
+        }
         setPoints((prev) => prev + Number(result?.points_awarded || 0));
       }
     );
@@ -111,14 +156,17 @@ export default function DashboardPage() {
     await callSkill(
       "award_points",
       {
-        user_id: userId,
         action: "redeem",
         points: 0,
         redeem_cost: cost,
       },
       (result) => {
         if (result?.redeemed) {
-          setPoints((prev) => Math.max(0, prev - cost));
+          if (typeof result?.current_points === "number") {
+            setPoints(result.current_points);
+          } else {
+            setPoints((prev) => Math.max(0, prev - cost));
+          }
           return;
         }
 
@@ -162,11 +210,10 @@ export default function DashboardPage() {
           skillName="tutor_subject"
           payloadKey="question"
           responseKey="response"
-          userId={userId}
           placeholder="Ask your homework question"
         />
 
-        <UploadForm userId={userId} onAnalyze={handleAnalyze} />
+        <UploadForm onAnalyzeFile={handleAnalyzeFile} onAnalyzeQuery={handleAnalyzeQuery} disabled={busy} />
       </section>
 
       <section className="mt-4 card p-4">
@@ -176,6 +223,7 @@ export default function DashboardPage() {
             value={reviewSubject}
             onChange={(event) => setReviewSubject(event.target.value)}
             className="rounded-md border border-slate-300 px-3 py-2"
+            disabled={busy}
           >
             <option value="math">Math</option>
             <option value="english">English</option>
@@ -185,7 +233,8 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={handleReviewPlan}
-            className="rounded-md bg-brand-700 px-4 py-2 text-white"
+            disabled={busy}
+            className="rounded-md bg-brand-700 px-4 py-2 text-white disabled:bg-slate-400"
           >
             Generate 7-day Plan
           </button>
@@ -202,6 +251,7 @@ export default function DashboardPage() {
             value={examSubject}
             onChange={(event) => setExamSubject(event.target.value)}
             className="rounded-md border border-slate-300 px-3 py-2"
+            disabled={busy}
           >
             <option value="math">Math</option>
             <option value="english">English</option>
@@ -213,6 +263,7 @@ export default function DashboardPage() {
             value={examDifficulty}
             onChange={(event) => setExamDifficulty(event.target.value)}
             className="rounded-md border border-slate-300 px-3 py-2"
+            disabled={busy}
           >
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
@@ -222,7 +273,8 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={handleGenerateExam}
-            className="rounded-md bg-brand-700 px-4 py-2 text-white"
+            disabled={busy}
+            className="rounded-md bg-brand-700 px-4 py-2 text-white disabled:bg-slate-400"
           >
             Generate Exam
           </button>
@@ -244,7 +296,6 @@ export default function DashboardPage() {
             skillName="post_wish"
             payloadKey="wish"
             responseKey="encouragement"
-            userId={userId}
             placeholder="Post a wish"
           />
 
@@ -253,7 +304,6 @@ export default function DashboardPage() {
             skillName="write_diary"
             payloadKey="entry"
             responseKey="suggestions"
-            userId={userId}
             placeholder="Write your daily diary"
           />
         </div>
@@ -278,3 +328,4 @@ export default function DashboardPage() {
     </main>
   );
 }
+

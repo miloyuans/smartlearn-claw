@@ -19,7 +19,8 @@ ACTION_POINTS = {
 def award_points(payload: Dict[str, Any]) -> Dict[str, Any]:
     require_fields(payload, "user_id", "action")
 
-    points = int(payload.get("points", ACTION_POINTS.get(payload["action"], 5)))
+    default_points = 0 if payload["action"] == "redeem" else ACTION_POINTS.get(payload["action"], 5)
+    points = int(payload.get("points", default_points))
 
     db_update(
         "users",
@@ -49,5 +50,8 @@ def award_points(payload: Dict[str, Any]) -> Dict[str, Any]:
         else:
             result["redeemed"] = False
             result["reason"] = "insufficient_points"
+
+    latest_user = db_get("users", {"_id": payload["user_id"]}) or {}
+    result["current_points"] = int(latest_user.get("points", 0))
 
     return result

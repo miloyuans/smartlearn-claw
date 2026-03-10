@@ -22,7 +22,22 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+
   if (event.request.method !== "GET") {
+    return;
+  }
+
+  // Cache only same-origin app shell/static assets. Never cache API/auth/socket traffic.
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  if (
+    url.pathname.startsWith("/api") ||
+    url.pathname.startsWith("/auth") ||
+    url.pathname.startsWith("/socket.io")
+  ) {
     return;
   }
 
@@ -31,6 +46,7 @@ self.addEventListener("fetch", (event) => {
       if (cached) {
         return cached;
       }
+
       return fetch(event.request).then((response) => {
         const clone = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));

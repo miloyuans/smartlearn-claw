@@ -2,15 +2,24 @@
 
 services:
   openclaw:
-    image: openclaw/latest
+    build:
+      context: ./openclaw-adapter
+      dockerfile: Dockerfile
     container_name: smartlearn-openclaw
     ports:
       - "8000:8000"
-    volumes:
-      - ./openclaw-plugins:/openclaw/plugins
     environment:
-      MODEL: ${MODEL:-deepseek-v3}
-      DB_URL: mongodb://db:27017/smartlearn
+      DB_URL: ${DB_URL:-mongodb://db:27017/smartlearn}
+      DB_NAME: ${DB_NAME:-smartlearn}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_EXP_MINUTES: ${JWT_EXP_MINUTES:-10080}
+      PLUGIN_DIR: /plugins
+      UPLOAD_DIR: /data/uploads
+      CORS_ORIGINS: http://localhost:3000
+    volumes:
+      - ./openclaw-plugins:/plugins
+      - ./openclaw-adapter/data:/data
     depends_on:
       - db
 
@@ -36,3 +45,5 @@ services:
 
 volumes:
   db-data:
+
+
