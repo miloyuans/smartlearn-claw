@@ -21,6 +21,7 @@ services:
       - ./openclaw-plugins:/openclaw/plugins
     depends_on:
       - db
+    command: ["openclaw", "gateway", "--allow-unconfigured"]
     restart: unless-stopped
 
   openclaw:

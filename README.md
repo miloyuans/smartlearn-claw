@@ -56,6 +56,7 @@ docker compose up -d --build
 docker exec -it smartlearn-openclaw-native bash
 ```
 
+The compose file starts native gateway with `openclaw gateway --allow-unconfigured` for first boot.
 Then follow your own process to configure DingTalk and model provider inside `/root/.openclaw`.
 This directory is persisted by Docker volume `openclaw-home`, so settings survive container restarts.
 
