@@ -109,9 +109,7 @@ services:
     volumes:
       - db-data:/data/db
     healthcheck:
-      test:
-        - CMD-SHELL
-        - mongosh --quiet --eval "quit(db.adminCommand({ ping: 1 }).ok ? 0 : 1)" mongodb://127.0.0.1:27017/admin
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'quit(db.adminCommand({ ping: 1 }).ok ? 0 : 1)' mongodb://127.0.0.1:27017/admin"]
       interval: 10s
       timeout: 5s
       retries: 30
